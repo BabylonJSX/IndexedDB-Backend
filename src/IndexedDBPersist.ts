@@ -141,7 +141,7 @@ module BABYLONX {
             
             var transaction = this.indexedDb_.transaction([IndexedDBPersist.OBJECT_STORE_NAME], "readwrite");
             transaction.oncomplete = function (event) {
-                console.debug("Adding done,", serializedMesh.name);
+                //console.debug("Adding done,", serializedMesh.name);
             };
 
             transaction.onerror = function (event) {
