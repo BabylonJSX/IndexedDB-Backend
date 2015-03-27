@@ -36,7 +36,8 @@ Check the demo and its javascript file for further usage.
 ##Events
 
 * onDatabaseUpdated: (updatedKeys: Array<number>) => void;
-    will be called after the database was updated. The updated keys array will include the updated meshes' unique IDs.
+    
+will be called after the database was updated. The updated keys array will include the updated meshes' unique IDs.
 
 ##Methods
 * countMeshes(countCallback: (count: number) => void): void
