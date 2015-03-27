@@ -31,6 +31,8 @@ dbName is optional, processRegistered set to true (default) will persist the mes
 
 * register the onDatabaseUpdated event and use it anywhere you wish.
 
+Check the demo and its javascript file for further usage.
+
 ##Events
 
 * onDatabaseUpdated: (updatedKeys: Array<number>) => void;
