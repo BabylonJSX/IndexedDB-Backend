@@ -68,8 +68,8 @@ module BABYLONX {
         public static OBJECT_STORE_NAME: string = "meshes";
 
         //to prevent too many locks
-        public addUpdateList: { [n:number]: SerializedMesh; }//: Array<SerializedMesh>;
-        public remvoeList: Array<number>;
+        private addUpdateList: { [n:number]: SerializedMesh; }//: Array<SerializedMesh>;
+        private remvoeList: Array<number>;
 
         //temp
         private uniqueIdCounter_ = 0;
@@ -102,6 +102,7 @@ module BABYLONX {
         }
 
         private onMeshAdded = (mesh: BABYLON.AbstractMesh, position: number) => {
+            //Unneeded with the newest BJS version
             mesh['uniqueId'] = this.uniqueIdCounter_++; 
             mesh.registerAfterWorldMatrixUpdate(this.onMeshUpdated);
             this.addUpdateList[<number> mesh['uniqueId']] = MeshSerialization.SerializeMesh(mesh);
