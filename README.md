@@ -1,4 +1,4 @@
-#BabylonJS Native IndexedDB Backend
+#BabylonJS IndexedDB Backend
 
 This BabylonJS (2.1 and up) extension persists all meshes added to a specific scene, including their position vertices and indices.
 
@@ -20,7 +20,7 @@ Use your console to see the count of objects (updated every 5 seconds using setI
 <script src="babylonx.indexeddbpersistence.2.1-alpha.js"></script>
 ```
 
-* initialize the event register class after creating the scene:
+* initialize indexeddb persist class after creating the scene:
 
 ```javascript
 var scene = myWonderfulSceneCreationMethod();
@@ -82,6 +82,7 @@ All stored in a single objectStore called "meshes".
 ##Notes
 * The database will be completely deleted and recreated every time the page is loaded. 
 * The mesh serialization will not reconstruct a mesh. Storing the normals, uvs, colors etc' is not yet available. This feature is coming soon.
+* This won't work in Safari! So far WebGL is also not fully supported, so that shouldn't be a major problem.
 
 ##Suggestions?
 
