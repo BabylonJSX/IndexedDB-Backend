@@ -1,8 +1,3 @@
-/**
- * BabylonJS IndexedDB mesh synchronization
- *
- * Created by Raanan Weber (info@raananweber.com), MIT Licensed.
- */
 var BABYLONX;
 (function (BABYLONX) {
     var MeshSerialization = (function () {
@@ -40,16 +35,11 @@ var BABYLONX;
     })();
     BABYLONX.MeshSerialization = MeshSerialization;
     var IndexedDBPersist = (function () {
-        /**
-         * @param _scene {BABYLON.Scene} - the BabylonJS scene to be used.
-         * @param processRegistered {boolean} - should already-registered nodes be processed by the extension. defaults to true.
-         */
         function IndexedDBPersist(_scene, dbName, processRegistered) {
             var _this = this;
             if (dbName === void 0) { dbName = "babylonJsMeshes"; }
             if (processRegistered === void 0) { processRegistered = true; }
             this._scene = _scene;
-            //temp
             this.uniqueIdCounter_ = 0;
             this.onMeshAdded = function (mesh, position) {
                 mesh['uniqueId'] = _this.uniqueIdCounter_++;
@@ -87,13 +77,11 @@ var BABYLONX;
             this.processMeshAddedUpdated = function (serializedMesh) {
                 var transaction = _this.indexedDb_.transaction([IndexedDBPersist.OBJECT_STORE_NAME], "readwrite");
                 transaction.oncomplete = function (event) {
-                    console.debug("Adding done,", serializedMesh.name);
                 };
                 transaction.onerror = function (event) {
                     console.log(event);
                 };
                 var objectStore = transaction.objectStore(IndexedDBPersist.OBJECT_STORE_NAME);
-                //todo handle the request events
                 objectStore.put(serializedMesh, serializedMesh.uniqueId);
             };
             this.processMeshRemoved = function (uniqueId) {
@@ -104,7 +92,6 @@ var BABYLONX;
                     console.log(event);
                 };
                 var objectStore = transaction.objectStore(IndexedDBPersist.OBJECT_STORE_NAME);
-                //todo handle the request events
                 objectStore.delete(uniqueId);
             };
             this.addUpdateList = {};
@@ -115,7 +102,6 @@ var BABYLONX;
                 _this._scene['onMeshRemoved'] = _this.onMeshRemoved;
                 _this._scene.registerAfterRender(_this.processLists);
                 if (processRegistered) {
-                    //register already-created meshes
                     setTimeout(function () {
                         _this._scene.meshes.forEach(function (node, index) {
                             _this.onMeshAdded(node, index);
@@ -182,4 +168,3 @@ var BABYLONX;
     })();
     BABYLONX.IndexedDBPersist = IndexedDBPersist;
 })(BABYLONX || (BABYLONX = {}));
-//# sourceMappingURL=babylonx.indexeddbpersistence.2.1-alpha.js.map
