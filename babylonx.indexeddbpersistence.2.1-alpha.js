@@ -42,7 +42,6 @@ var BABYLONX;
             this._scene = _scene;
             this.uniqueIdCounter_ = 0;
             this.onMeshAdded = function (mesh, position) {
-                mesh['uniqueId'] = _this.uniqueIdCounter_++;
                 mesh.registerAfterWorldMatrixUpdate(_this.onMeshUpdated);
                 _this.addUpdateList[mesh['uniqueId']] = MeshSerialization.SerializeMesh(mesh);
             };
