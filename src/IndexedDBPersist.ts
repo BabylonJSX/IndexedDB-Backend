@@ -103,7 +103,7 @@ module BABYLONX {
 
         private onMeshAdded = (mesh: BABYLON.AbstractMesh, position: number) => {
             //Unneeded with the newest BJS version
-            mesh['uniqueId'] = this.uniqueIdCounter_++; 
+            //mesh['uniqueId'] = this.uniqueIdCounter_++; 
             mesh.registerAfterWorldMatrixUpdate(this.onMeshUpdated);
             this.addUpdateList[<number> mesh['uniqueId']] = MeshSerialization.SerializeMesh(mesh);
         }
