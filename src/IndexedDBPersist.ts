@@ -91,6 +91,8 @@ module BABYLONX {
         private _addUpdateListGeometries: { [s: string]: SerializedGeometry; };
         private _remvoeList: Array<number>;
         private _removeListGeometries: Array<string>;
+
+        private processing: boolean = false;
         
         public onDatabaseUpdated: (updatedMeshesUniqueIds: Array<number>, updatedGeometriesIds: Array<string>) => void;
 
@@ -155,44 +157,96 @@ module BABYLONX {
 
         private _processLists = () => {
             if (!this._indexedDb) return;
-            var updatedMeshes: Array<number> = [];
-            var updatedGeometries: Array<string> = [];
+            if (this.processing) {
+                console.log("processing");
+                return;
+            }
+            this.processing = true;
+            this._processDatabaseUpdate((updatedMeshes, updatedGeometries) => {
+                if (updatedMeshes.length || updatedGeometries.length) {
+                    if (this.onDatabaseUpdated) {
+                        this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
+                    }
+                }
+                console.log("db updated");
+                this.processing = false;
+            });
+        }
+
+        private _processDatabaseUpdate = (callback: (updatedMeshesUniqueIds: Array<number>, updatedGeometriesIds: Array<string>) => void) => {
+            var transaction = this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME, IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME], "readwrite");
+            var updatedMeshes = [];
+            var updatedGeometries = [];
+            transaction.oncomplete = function (event) {
+                callback(updatedMeshes, updatedGeometries);
+            };
+
+            transaction.onerror = function (event) {
+                console.log(event);
+
+            };
+
+            var meshObjectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
+            var geometriesObjectStore = transaction.objectStore(IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME);
+
             for (var uniqueId in this._addUpdateList) {
                 if (this._addUpdateList.hasOwnProperty(uniqueId)) {
                     updatedMeshes.push(parseInt(uniqueId));
-                    this._processMeshAddedUpdated(this._addUpdateList[uniqueId]);
+                    meshObjectStore.put(this._addUpdateList[uniqueId], this._addUpdateList[uniqueId].uniqueId);
                     delete this._addUpdateList[uniqueId];
                 }
             }
             for (var id in this._addUpdateListGeometries) {
                 if (this._addUpdateListGeometries.hasOwnProperty(id)) {
                     updatedGeometries.push(id);
-                    this.processGeometryAddedUpdated(this._addUpdateListGeometries[id]);
+                    geometriesObjectStore.put(this._addUpdateListGeometries[id], id);
                     delete this._addUpdateListGeometries[id];
                 }
             }
             while (this._remvoeList.length) {
                 var toRemove = this._remvoeList.pop()
                 updatedMeshes.push(toRemove);
-                this._processMeshRemoved(toRemove);
+                meshObjectStore.delete(toRemove);
             }
             while (this._removeListGeometries.length) {
                 var gToRemove = this._removeListGeometries.pop()
                 updatedGeometries.push(gToRemove);
-                this._processGeometryRemoved(gToRemove);
-            }
-            if (updatedMeshes.length || updatedGeometries.length) {
-                if (this.onDatabaseUpdated) {
-                    this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
-                }
+                geometriesObjectStore.delete(gToRemove);
             }
         }
 
+        private _processMeshesAddedUpdatedBatch = (callback: (updatedMeshes: Array<number>) => void) => {
+            var transaction = this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readwrite");
+            var updatedMeshes = []
+            transaction.oncomplete = function (event) {
+                callback(updatedMeshes);
+            };
+
+            transaction.onerror = function (event) {
+                console.log(event);
+                
+            };
+
+            var objectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
+
+            for (var uniqueId in this._addUpdateList) {
+                if (this._addUpdateList.hasOwnProperty(uniqueId)) {
+                    updatedMeshes.push(parseInt(uniqueId));
+                    objectStore.put(this._addUpdateList[uniqueId], this._addUpdateList[uniqueId].uniqueId);
+                    delete this._addUpdateList[uniqueId];
+                }
+            }
+
+            //todo handle the request events
+            //objectStore.put(serializedMesh, serializedMesh.uniqueId);
+        }
+
         private _processMeshAddedUpdated = (serializedMesh: SerializedMesh) => {
-            
+            console.time("" + serializedMesh.uniqueId);
             var transaction = this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readwrite");
             transaction.oncomplete = function (event) {
                 //console.debug("Adding done,", serializedMesh.name);
+                console.timeEnd("" + serializedMesh.uniqueId);
             };
 
             transaction.onerror = function (event) {
