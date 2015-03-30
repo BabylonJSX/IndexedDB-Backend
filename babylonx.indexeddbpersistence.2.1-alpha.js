@@ -1,9 +1,9 @@
 var BABYLONX;
 (function (BABYLONX) {
-    var MeshSerialization = (function () {
-        function MeshSerialization() {
+    var BabylonSerialization = (function () {
+        function BabylonSerialization() {
         }
-        MeshSerialization.SerializeMesh = function (mesh) {
+        BabylonSerialization.SerializeMesh = function (mesh) {
             var submeshes = [];
             if (mesh.subMeshes) {
                 submeshes = mesh.subMeshes.map(function (sm, idx) {
@@ -16,12 +16,12 @@ var BABYLONX;
                     };
                 });
             }
+            var geometryId = mesh.geometry ? mesh.geometry.id : null;
             return {
-                uniqueId: mesh['uniqueId'],
+                uniqueId: mesh.uniqueId,
                 id: mesh.id,
                 name: mesh.name,
-                indices: mesh.getIndices(),
-                positions: mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind),
+                geometryId: geometryId,
                 sphereCenter: mesh.getBoundingInfo().boundingSphere.centerWorld.asArray(),
                 sphereRadius: mesh.getBoundingInfo().boundingSphere.radiusWorld,
                 boxMinimum: mesh.getBoundingInfo().boundingBox.minimumWorld.asArray(),
@@ -31,85 +31,143 @@ var BABYLONX;
                 checkCollisions: mesh.checkCollisions
             };
         };
-        return MeshSerialization;
+        BabylonSerialization.SerializeGeometry = function (geometry) {
+            return {
+                id: geometry.id,
+                positions: geometry.getVerticesData(BABYLON.VertexBuffer.PositionKind),
+                normals: geometry.getVerticesData(BABYLON.VertexBuffer.NormalKind),
+                indices: geometry.getIndices(),
+                uvs: geometry.getVerticesData(BABYLON.VertexBuffer.UVKind)
+            };
+        };
+        return BabylonSerialization;
     })();
-    BABYLONX.MeshSerialization = MeshSerialization;
+    BABYLONX.BabylonSerialization = BabylonSerialization;
     var IndexedDBPersist = (function () {
         function IndexedDBPersist(_scene, dbName, processRegistered) {
             var _this = this;
             if (dbName === void 0) { dbName = "babylonJsMeshes"; }
             if (processRegistered === void 0) { processRegistered = true; }
             this._scene = _scene;
-            this.uniqueIdCounter_ = 0;
-            this.onMeshAdded = function (mesh, position) {
-                mesh.registerAfterWorldMatrixUpdate(_this.onMeshUpdated);
-                _this.addUpdateList[mesh['uniqueId']] = MeshSerialization.SerializeMesh(mesh);
+            this._onMeshAdded = function (mesh) {
+                mesh.registerAfterWorldMatrixUpdate(_this._onMeshUpdated);
+                _this._addUpdateList[mesh.uniqueId] = BabylonSerialization.SerializeMesh(mesh);
             };
-            this.onMeshRemoved = function (mesh) {
-                _this.remvoeList.push(mesh['uniqueId']);
+            this._onMeshRemoved = function (mesh) {
+                _this._remvoeList.push(mesh.uniqueId);
             };
-            this.onMeshUpdated = function (mesh) {
-                _this.addUpdateList[mesh['uniqueId']] = MeshSerialization.SerializeMesh(mesh);
+            this._onMeshUpdated = function (mesh) {
+                _this._addUpdateList[mesh.uniqueId] = BabylonSerialization.SerializeMesh(mesh);
             };
-            this.processLists = function () {
-                if (!_this.indexedDb_)
+            this._onGeometryAdded = function (geometry) {
+                geometry.onGeometryUpdated = _this._onGeometryUpdated;
+                _this._addUpdateListGeometries[geometry.id] = BabylonSerialization.SerializeGeometry(geometry);
+            };
+            this._onGeometryRemoved = function (geometry) {
+                _this._removeListGeometries.push(geometry.id);
+            };
+            this._onGeometryUpdated = function (geometry) {
+                _this._addUpdateListGeometries[geometry.id] = BabylonSerialization.SerializeGeometry(geometry);
+            };
+            this._processLists = function () {
+                if (!_this._indexedDb)
                     return;
-                var updated = [];
-                for (var property in _this.addUpdateList) {
-                    if (_this.addUpdateList.hasOwnProperty(property)) {
-                        updated.push(parseInt(property));
-                        _this.processMeshAddedUpdated(_this.addUpdateList[property]);
-                        delete _this.addUpdateList[property];
+                var updatedMeshes = [];
+                var updatedGeometries = [];
+                for (var uniqueId in _this._addUpdateList) {
+                    if (_this._addUpdateList.hasOwnProperty(uniqueId)) {
+                        updatedMeshes.push(parseInt(uniqueId));
+                        _this._processMeshAddedUpdated(_this._addUpdateList[uniqueId]);
+                        delete _this._addUpdateList[uniqueId];
                     }
                 }
-                while (_this.remvoeList.length) {
-                    var toRemove = _this.remvoeList.pop();
-                    updated.push(toRemove);
-                    _this.processMeshRemoved(toRemove);
+                for (var id in _this._addUpdateListGeometries) {
+                    if (_this._addUpdateListGeometries.hasOwnProperty(id)) {
+                        updatedGeometries.push(id);
+                        _this.processGeometryAddedUpdated(_this._addUpdateListGeometries[id]);
+                        delete _this._addUpdateListGeometries[id];
+                    }
                 }
-                if (updated.length) {
+                while (_this._remvoeList.length) {
+                    var toRemove = _this._remvoeList.pop();
+                    updatedMeshes.push(toRemove);
+                    _this._processMeshRemoved(toRemove);
+                }
+                while (_this._removeListGeometries.length) {
+                    var gToRemove = _this._removeListGeometries.pop();
+                    updatedGeometries.push(gToRemove);
+                    _this._processGeometryRemoved(gToRemove);
+                }
+                if (updatedMeshes.length || updatedGeometries.length) {
                     if (_this.onDatabaseUpdated) {
-                        _this.onDatabaseUpdated(updated);
+                        _this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
                     }
                 }
             };
-            this.processMeshAddedUpdated = function (serializedMesh) {
-                var transaction = _this.indexedDb_.transaction([IndexedDBPersist.OBJECT_STORE_NAME], "readwrite");
+            this._processMeshAddedUpdated = function (serializedMesh) {
+                var transaction = _this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readwrite");
                 transaction.oncomplete = function (event) {
                 };
                 transaction.onerror = function (event) {
                     console.log(event);
                 };
-                var objectStore = transaction.objectStore(IndexedDBPersist.OBJECT_STORE_NAME);
+                var objectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
                 objectStore.put(serializedMesh, serializedMesh.uniqueId);
             };
-            this.processMeshRemoved = function (uniqueId) {
-                var transaction = _this.indexedDb_.transaction([IndexedDBPersist.OBJECT_STORE_NAME], "readwrite");
+            this._processMeshRemoved = function (uniqueId) {
+                var transaction = _this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readwrite");
                 transaction.oncomplete = function (event) {
                 };
                 transaction.onerror = function (event) {
                     console.log(event);
                 };
-                var objectStore = transaction.objectStore(IndexedDBPersist.OBJECT_STORE_NAME);
+                var objectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
                 objectStore.delete(uniqueId);
             };
-            this.addUpdateList = {};
-            this.remvoeList = [];
-            this.openDatabase(dbName, 1, true, function (db) {
-                _this.indexedDb_ = db;
-                _this._scene['onNewMeshAdded'] = _this.onMeshAdded;
-                _this._scene['onMeshRemoved'] = _this.onMeshRemoved;
-                _this._scene.registerAfterRender(_this.processLists);
+            this.processGeometryAddedUpdated = function (serializedGeometry) {
+                var transaction = _this._indexedDb.transaction([IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME], "readwrite");
+                transaction.oncomplete = function (event) {
+                };
+                transaction.onerror = function (event) {
+                    console.log(event);
+                };
+                var objectStore = transaction.objectStore(IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME);
+                objectStore.put(serializedGeometry, serializedGeometry.id);
+            };
+            this._processGeometryRemoved = function (id) {
+                var transaction = _this._indexedDb.transaction([IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME], "readwrite");
+                transaction.oncomplete = function (event) {
+                };
+                transaction.onerror = function (event) {
+                    console.log(event);
+                };
+                var objectStore = transaction.objectStore(IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME);
+                objectStore.delete(id);
+            };
+            this._addUpdateList = {};
+            this._addUpdateListGeometries = {};
+            this._remvoeList = [];
+            this._removeListGeometries = [];
+            this._openDatabase(dbName, 1, true, function (db) {
+                _this._indexedDb = db;
+                _this._scene.onNewMeshAdded = _this._onMeshAdded;
+                _this._scene.onMeshRemoved = _this._onMeshRemoved;
+                _this._scene.onGeometryAdded = _this._onGeometryAdded;
+                _this._scene.onGeometryRemoved = _this._onGeometryRemoved;
+                _this._scene.registerAfterRender(_this._processLists);
                 if (processRegistered) {
                     setTimeout(function () {
-                        _this._scene.meshes.forEach(function (node, index) {
-                            _this.onMeshAdded(node, index);
+                        _this._scene.meshes.forEach(function (node) {
+                            _this._onMeshAdded(node);
+                        });
+                        _this._scene.getGeometries().forEach(function (geometry) {
+                            _this._onGeometryAdded(geometry);
                         });
                     });
                 }
             });
         }
-        IndexedDBPersist.prototype.openDatabase = function (dbName, dbVersion, deleteDatabase, successCallback) {
+        IndexedDBPersist.prototype._openDatabase = function (dbName, dbVersion, deleteDatabase, successCallback) {
             if (deleteDatabase) {
                 indexedDB.deleteDatabase(dbName);
             }
@@ -123,20 +181,20 @@ var BABYLONX;
             };
             request.onupgradeneeded = function (event) {
                 var openedDb = event.target['result'];
-                var meshesObjectStore = openedDb.createObjectStore(IndexedDBPersist.OBJECT_STORE_NAME);
+                var meshesObjectStore = openedDb.createObjectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
                 meshesObjectStore.createIndex("uniqueId", "uniqueId", { unique: true });
-                meshesObjectStore.createIndex("name", "name", { unique: false });
-                meshesObjectStore.createIndex("id", "id", { unique: false });
+                var geometriesObjectStore = openedDb.createObjectStore(IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME);
+                geometriesObjectStore.createIndex("id", "id", { unique: true });
             };
         };
         IndexedDBPersist.prototype.countMeshes = function (countCallback) {
-            if (!this.indexedDb_)
+            if (!this._indexedDb)
                 return;
-            var transaction = this.indexedDb_.transaction([IndexedDBPersist.OBJECT_STORE_NAME], "readonly");
+            var transaction = this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readonly");
             transaction.onerror = function (event) {
                 console.log(event);
             };
-            var objectStore = transaction.objectStore(IndexedDBPersist.OBJECT_STORE_NAME);
+            var objectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
             var index = objectStore.index("uniqueId");
             var req = index.count();
             req.onsuccess = function (event) {
@@ -144,8 +202,8 @@ var BABYLONX;
             };
         };
         IndexedDBPersist.prototype.getAllMeshes = function (callback) {
-            var trans = this.indexedDb_.transaction([IndexedDBPersist.OBJECT_STORE_NAME]);
-            var store = trans.objectStore(IndexedDBPersist.OBJECT_STORE_NAME);
+            var trans = this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME]);
+            var store = trans.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
             var meshes = [];
             trans.oncomplete = function (evt) {
                 callback(meshes);
@@ -162,7 +220,8 @@ var BABYLONX;
                 }
             };
         };
-        IndexedDBPersist.OBJECT_STORE_NAME = "meshes";
+        IndexedDBPersist.MESHES_OBJECT_STORE_NAME = "meshes";
+        IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME = "geometries";
         return IndexedDBPersist;
     })();
     BABYLONX.IndexedDBPersist = IndexedDBPersist;
