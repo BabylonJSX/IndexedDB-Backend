@@ -49,6 +49,7 @@ var BABYLONX;
             if (dbName === void 0) { dbName = "babylonJsMeshes"; }
             if (processRegistered === void 0) { processRegistered = true; }
             this._scene = _scene;
+            this.processing = false;
             this._onMeshAdded = function (mesh) {
                 mesh.registerAfterWorldMatrixUpdate(_this._onMeshUpdated);
                 _this._addUpdateList[mesh.uniqueId] = BabylonSerialization.SerializeMesh(mesh);
@@ -72,41 +73,81 @@ var BABYLONX;
             this._processLists = function () {
                 if (!_this._indexedDb)
                     return;
+                if (_this.processing) {
+                    console.log("processing");
+                    return;
+                }
+                _this.processing = true;
+                _this._processDatabaseUpdate(function (updatedMeshes, updatedGeometries) {
+                    if (updatedMeshes.length || updatedGeometries.length) {
+                        if (_this.onDatabaseUpdated) {
+                            _this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
+                        }
+                    }
+                    console.log("db updated");
+                    _this.processing = false;
+                });
+            };
+            this._processDatabaseUpdate = function (callback) {
+                var transaction = _this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME, IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME], "readwrite");
                 var updatedMeshes = [];
                 var updatedGeometries = [];
+                transaction.oncomplete = function (event) {
+                    callback(updatedMeshes, updatedGeometries);
+                };
+                transaction.onerror = function (event) {
+                    console.log(event);
+                };
+                var meshObjectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
+                var geometriesObjectStore = transaction.objectStore(IndexedDBPersist.GEOMETRIES_OBJECT_STORE_NAME);
                 for (var uniqueId in _this._addUpdateList) {
                     if (_this._addUpdateList.hasOwnProperty(uniqueId)) {
                         updatedMeshes.push(parseInt(uniqueId));
-                        _this._processMeshAddedUpdated(_this._addUpdateList[uniqueId]);
+                        meshObjectStore.put(_this._addUpdateList[uniqueId], _this._addUpdateList[uniqueId].uniqueId);
                         delete _this._addUpdateList[uniqueId];
                     }
                 }
                 for (var id in _this._addUpdateListGeometries) {
                     if (_this._addUpdateListGeometries.hasOwnProperty(id)) {
                         updatedGeometries.push(id);
-                        _this.processGeometryAddedUpdated(_this._addUpdateListGeometries[id]);
+                        geometriesObjectStore.put(_this._addUpdateListGeometries[id], id);
                         delete _this._addUpdateListGeometries[id];
                     }
                 }
                 while (_this._remvoeList.length) {
                     var toRemove = _this._remvoeList.pop();
                     updatedMeshes.push(toRemove);
-                    _this._processMeshRemoved(toRemove);
+                    meshObjectStore.delete(toRemove);
                 }
                 while (_this._removeListGeometries.length) {
                     var gToRemove = _this._removeListGeometries.pop();
                     updatedGeometries.push(gToRemove);
-                    _this._processGeometryRemoved(gToRemove);
+                    geometriesObjectStore.delete(gToRemove);
                 }
-                if (updatedMeshes.length || updatedGeometries.length) {
-                    if (_this.onDatabaseUpdated) {
-                        _this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
+            };
+            this._processMeshesAddedUpdatedBatch = function (callback) {
+                var transaction = _this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readwrite");
+                var updatedMeshes = [];
+                transaction.oncomplete = function (event) {
+                    callback(updatedMeshes);
+                };
+                transaction.onerror = function (event) {
+                    console.log(event);
+                };
+                var objectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);
+                for (var uniqueId in _this._addUpdateList) {
+                    if (_this._addUpdateList.hasOwnProperty(uniqueId)) {
+                        updatedMeshes.push(parseInt(uniqueId));
+                        objectStore.put(_this._addUpdateList[uniqueId], _this._addUpdateList[uniqueId].uniqueId);
+                        delete _this._addUpdateList[uniqueId];
                     }
                 }
             };
             this._processMeshAddedUpdated = function (serializedMesh) {
+                console.time("" + serializedMesh.uniqueId);
                 var transaction = _this._indexedDb.transaction([IndexedDBPersist.MESHES_OBJECT_STORE_NAME], "readwrite");
                 transaction.oncomplete = function (event) {
+                    console.timeEnd("" + serializedMesh.uniqueId);
                 };
                 transaction.onerror = function (event) {
                     console.log(event);
