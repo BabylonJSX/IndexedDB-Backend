@@ -156,11 +156,7 @@ module BABYLONX {
         }
 
         private _processLists = () => {
-            if (!this._indexedDb) return;
-            if (this.processing) {
-                console.log("processing");
-                return;
-            }
+            if (!this._indexedDb || this.processing) return;
             this.processing = true;
             this._processDatabaseUpdate((updatedMeshes, updatedGeometries) => {
                 if (updatedMeshes.length || updatedGeometries.length) {
@@ -168,7 +164,6 @@ module BABYLONX {
                         this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
                     }
                 }
-                console.log("db updated");
                 this.processing = false;
             });
         }
@@ -183,7 +178,6 @@ module BABYLONX {
 
             transaction.onerror = function (event) {
                 console.log(event);
-
             };
 
             var meshObjectStore = transaction.objectStore(IndexedDBPersist.MESHES_OBJECT_STORE_NAME);

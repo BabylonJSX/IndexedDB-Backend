@@ -71,12 +71,8 @@ var BABYLONX;
                 _this._addUpdateListGeometries[geometry.id] = BabylonSerialization.SerializeGeometry(geometry);
             };
             this._processLists = function () {
-                if (!_this._indexedDb)
+                if (!_this._indexedDb || _this.processing)
                     return;
-                if (_this.processing) {
-                    console.log("processing");
-                    return;
-                }
                 _this.processing = true;
                 _this._processDatabaseUpdate(function (updatedMeshes, updatedGeometries) {
                     if (updatedMeshes.length || updatedGeometries.length) {
@@ -84,7 +80,6 @@ var BABYLONX;
                             _this.onDatabaseUpdated(updatedMeshes, updatedGeometries);
                         }
                     }
-                    console.log("db updated");
                     _this.processing = false;
                 });
             };
