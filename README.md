@@ -1,6 +1,6 @@
 #BabylonJS IndexedDB Backend
 
-This BabylonJS (2.1 and up) extension persists all meshes added to a specific scene, including their position vertices and indices.
+This BabylonJS (2.1 and up) extension persists all meshes added to a specific scene. It also updates the databse when the mesh has changed. Apart from that all geometries are also persisted in a different data store and also get updated if and when the user updates them.
 
 ##Why do I need this?
 This plugin was created for the WebWorker-based collision detector plugin (https://github.com/BabylonJSX/WebWorker-Collisions) . Some other applications might benefit from it!
@@ -35,7 +35,7 @@ Check the demo and its javascript file for further usage.
 
 ##Events
 
-* onDatabaseUpdated: (updatedKeys: Array<number>) => void;
+* onDatabaseUpdated: (updatedMeshesUniqueIds: Array<number>, updatedGeometriesIds: Array<string>) => void;
     
 will be called after the database was updated. The updated keys array will include the updated meshes' unique IDs.
 
@@ -53,12 +53,11 @@ Will retrieve all (Serialized!) meshes from the database and send them with the 
 In TypeScript:
 
 ```javascript
-    export interface SerializedMesh {
+        export interface SerializedMesh {
         id: string;
         name: string;
         uniqueId: number;
-        indices: Array<number>;
-        positions: Array<number>;
+        geometryId: string;
         sphereCenter: Array<number>;
         sphereRadius: number;
         boxMinimum: Array<number>;
@@ -75,14 +74,21 @@ In TypeScript:
         indexStart: number;
         indexCount: number;
     }
+
+    export interface SerializedGeometry {
+        id: string;
+        positions: Array<number>;
+        indices: Array<number>;
+        normals: Array<number>;
+        uvs?: Array<number>;
+    }
 ```
 
-All stored in a single objectStore called "meshes".
+All stored in 2 objectStores called "meshes" and "geometries".
 
 ##Notes
-* The database will be completely deleted and recreated every time the page is loaded. 
-* The mesh serialization will not reconstruct a mesh. Storing the normals, uvs, colors etc' is not yet available. This feature is coming soon.
-* This won't work in Safari! So far WebGL is also not fully supported, so that shouldn't be a major problem.
+* The database will be completely deleted and recreated every time the page is loaded. Thsi can be altered.
+* The mesh serialization will not reconstruct a mesh. It is however technically possible, as the geometry is also stored and is referenced from the mesh object.
 
 ##Suggestions?
 
