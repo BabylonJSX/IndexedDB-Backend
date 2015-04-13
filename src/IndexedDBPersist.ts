@@ -306,7 +306,7 @@ module BABYLONX {
                 console.log(e);
             }
 
-            request.onsuccess = function (e: Event) {
+            request.onsuccess = function (event: Event) {
                 var openedDb = event.target['result'];
                 successCallback(openedDb);
             }

@@ -211,7 +211,7 @@ var BABYLONX;
             request.onerror = function (e) {
                 console.log(e);
             };
-            request.onsuccess = function (e) {
+            request.onsuccess = function (event) {
                 var openedDb = event.target['result'];
                 successCallback(openedDb);
             };
