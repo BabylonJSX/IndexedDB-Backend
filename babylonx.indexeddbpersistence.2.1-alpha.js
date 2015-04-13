@@ -34,10 +34,10 @@ var BABYLONX;
         BabylonSerialization.SerializeGeometry = function (geometry) {
             return {
                 id: geometry.id,
-                positions: geometry.getVerticesData(BABYLON.VertexBuffer.PositionKind),
-                normals: geometry.getVerticesData(BABYLON.VertexBuffer.NormalKind),
-                indices: geometry.getIndices(),
-                uvs: geometry.getVerticesData(BABYLON.VertexBuffer.UVKind)
+                positions: new Float32Array(geometry.getVerticesData(BABYLON.VertexBuffer.PositionKind) || []),
+                normals: new Float32Array(geometry.getVerticesData(BABYLON.VertexBuffer.NormalKind) || []),
+                indices: new Int32Array(geometry.getIndices() || []),
+                uvs: new Float32Array(geometry.getVerticesData(BABYLON.VertexBuffer.UVKind) || [])
             };
         };
         return BabylonSerialization;
@@ -52,7 +52,7 @@ var BABYLONX;
             this.processing = false;
             this._onMeshAdded = function (mesh) {
                 mesh.registerAfterWorldMatrixUpdate(_this._onMeshUpdated);
-                _this._addUpdateList[mesh.uniqueId] = BabylonSerialization.SerializeMesh(mesh);
+                _this._onMeshUpdated(mesh);
             };
             this._onMeshRemoved = function (mesh) {
                 _this._remvoeList.push(mesh.uniqueId);
@@ -62,7 +62,7 @@ var BABYLONX;
             };
             this._onGeometryAdded = function (geometry) {
                 geometry.onGeometryUpdated = _this._onGeometryUpdated;
-                _this._addUpdateListGeometries[geometry.id] = BabylonSerialization.SerializeGeometry(geometry);
+                _this._onGeometryUpdated(geometry);
             };
             this._onGeometryRemoved = function (geometry) {
                 _this._removeListGeometries.push(geometry.id);

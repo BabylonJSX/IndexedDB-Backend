@@ -30,10 +30,10 @@ module BABYLONX {
 
     export interface SerializedGeometry {
         id: string;
-        positions: Array<number>;
-        indices: Array<number>;
-        normals: Array<number>;
-        uvs?: Array<number>;
+        positions: Float32Array;
+        indices: Int32Array;
+        normals: Float32Array;
+        uvs?: Float32Array;
     }
 
     export class BabylonSerialization {
@@ -71,10 +71,10 @@ module BABYLONX {
         public static SerializeGeometry = function (geometry: BABYLON.Geometry): SerializedGeometry {
             return {
                 id: geometry.id,
-                positions: geometry.getVerticesData(BABYLON.VertexBuffer.PositionKind),
-                normals: geometry.getVerticesData(BABYLON.VertexBuffer.NormalKind),
-                indices: geometry.getIndices(),
-                uvs: geometry.getVerticesData(BABYLON.VertexBuffer.UVKind)
+                positions: new Float32Array(geometry.getVerticesData(BABYLON.VertexBuffer.PositionKind) || []),
+                normals: new Float32Array(geometry.getVerticesData(BABYLON.VertexBuffer.NormalKind) || []),
+                indices: new Int32Array(geometry.getIndices() || []),
+                uvs: new Float32Array(geometry.getVerticesData(BABYLON.VertexBuffer.UVKind) || [])
             }
         }
     }
@@ -131,7 +131,7 @@ module BABYLONX {
 
         private _onMeshAdded = (mesh: BABYLON.AbstractMesh) => {
             mesh.registerAfterWorldMatrixUpdate(this._onMeshUpdated);
-            this._addUpdateList[mesh.uniqueId] = BabylonSerialization.SerializeMesh(mesh);
+            this._onMeshUpdated(mesh);
         }
 
         private _onMeshRemoved = (mesh: BABYLON.AbstractMesh) => {
@@ -144,7 +144,7 @@ module BABYLONX {
 
         private _onGeometryAdded = (geometry: BABYLON.Geometry) => {
             geometry.onGeometryUpdated = this._onGeometryUpdated;
-            this._addUpdateListGeometries[geometry.id] = BabylonSerialization.SerializeGeometry(geometry);
+            this._onGeometryUpdated(geometry);
         }
 
         private _onGeometryRemoved = (geometry: BABYLON.Geometry) => {
